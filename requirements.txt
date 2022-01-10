@@ -79,3 +79,5 @@ wcwidth==0.2.5
 webencodings==0.5.1
 websocket-client==1.2.1
 zipp==3.6.0
+
+transitions~=0.8.10

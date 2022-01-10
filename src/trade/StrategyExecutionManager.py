@@ -28,6 +28,16 @@ class StrategyExecutionManager:
             self.strategy_config = refreshed_strategy_config
         return
 
+    # Invoked by ticker update events
+    # Todo: need to implement a synchronization mechanism
     def strategize_tickers(self, tickers):
+        # First make a query to current position
+        # Then make a query to trade order status for that ticker
+        # After that, if a trade can be made, look up the strategy configuration file and make bids
+        pass
 
+    def place_bid(self, ticker, contract):
+        pass
+
+    def place_ask(self, ticker, contract):
         pass
