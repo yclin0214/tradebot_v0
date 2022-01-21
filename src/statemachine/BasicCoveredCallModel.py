@@ -4,6 +4,7 @@ import CoveredCallAbstractModel
 class BasicCoveredCallModel(CoveredCallAbstractModel):
 
     # Todo: to implement the strategy here
+    # event -> contains multiple columns
     def should_close_short_call(self, event):
         print(event)
         return True
