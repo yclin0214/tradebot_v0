@@ -1,4 +1,5 @@
 import pandas as pd
+import TrendWave
 
 # we use the following formula as short term trend indicator:
 # 1day_high - bollinger_band_low & 1day_low - bollinger_band_high
@@ -48,7 +49,7 @@ def generate_level2_signal(df: pd.Series, one_day_high_col, one_day_low_col, one
     return df
 
 
-def process_level2_signal(level2_signal_col: str, step_size: int, output_col: str):
+def process_level2_signal(df: pd.Series, level2_signal_col: str, output_col: str):
     return
 
 
@@ -165,6 +166,18 @@ def analyze_window(signal_window_list, up_threshold, down_threshold):
     return res_list
 
 
+# level2_signal will be compressed to 1 day resolution
+def generate_trend_sequence(level2_signal_list, signal_amplitude_list, window_size, step_size):
+    trend_avg_list = []
+    weighted_trend_list = []
+    for i in range(window_size - 1, len(level2_signal_list), step_size):
+        trend_avg_list.append(sum(level2_signal_list[i-window_size+1:i+1])/float(window_size))
+        weighted_trend_sum = sum([signal_amplitude_list[k] * level2_signal_list[k] for k in range(i-window_size+1, i)])
+        weighted_trend_list.append(weighted_trend_sum/float(window_size))
+
+    return trend_avg_list, weighted_trend_list
+
+
 def find_first_negative_left(signal_window_list, pivot_index):
     for i in range(pivot_index-1, -1, -1):
         if signal_window_list[i] < 0:
@@ -191,3 +204,95 @@ def find_first_positive_right(signal_window_list, pivot_index):
         if signal_window_list[i] > 0:
             return i
     return len(signal_window_list)
+
+
+# for back testing, this can take any node in the linked list, and test from there
+def get_sign_aligned_trend_waves(tail_trend: TrendWave):
+    negative_trend_wave = []
+    positive_trend_wave = []
+    while tail_trend.get_prev_node() is not None:
+        if tail_trend.get_sign():
+            positive_trend_wave.append(tail_trend)
+        else:
+            negative_trend_wave.append(tail_trend)
+        tail_trend = tail_trend.get_prev_node()
+
+    if tail_trend.get_sign():
+        positive_trend_wave.append(tail_trend)
+    else:
+        negative_trend_wave.append(tail_trend)
+
+    return positive_trend_wave, negative_trend_wave
+
+
+# days_ago = actual days divided by trend_wave resolution (1/2/3/4... days)
+def analyze_time_constraint_trend(tail_trend: TrendWave, days_ago: int, maximum_trend_days_gap: int, minimum_trend_amplitude: float):
+    positive_trend_wave, negative_trend_wave = get_sign_aligned_trend_waves(tail_trend)
+    # first item in the array -> latest trend wave
+    latest_positive_trend_list = []
+    latest_negative_trend_list = []
+
+    if len(positive_trend_wave) > 0:
+        latest_positive_trend_list.append(positive_trend_wave[0])
+
+    if len(negative_trend_wave) > 0:
+        latest_negative_trend_list.append(negative_trend_wave[0])
+
+    for i in range(1, len(positive_trend_wave)):
+        # consecutive trend wave constraint
+        if (latest_positive_trend_list[-1].get_start_time() - positive_trend_wave[i].get_end_time()) > maximum_trend_days_gap:
+            break
+        # latest trend wave to earliest trend wave time constraint
+        if (latest_positive_trend_list[0].get_end_time() - positive_trend_wave[i].get_end_time()) > days_ago:
+            break
+        if positive_trend_wave[i].get_max_amplitude() >= minimum_trend_amplitude:
+            latest_positive_trend_list.append(positive_trend_wave[i])
+
+    for j in range(1, len(negative_trend_wave)):
+        # consecutive trend constraint
+        if (latest_negative_trend_list[-1].get_start_time() - negative_trend_wave[j].get_end_time()) > maximum_trend_days_gap:
+            break
+        if (latest_negative_trend_list[0].get_end_time() - negative_trend_wave[j].get_end_time()) > days_ago:
+            break
+        if abs(negative_trend_wave[j].get_max_amplitude()) >= minimum_trend_amplitude:
+            latest_negative_trend_list.append(negative_trend_wave[j])
+
+    return latest_positive_trend_list, latest_negative_trend_list
+
+
+def analyze_occurrence_constraint_trend(tail_trend: TrendWave, count: int, minimum_trend_amplitude: float):
+    positive_trend_wave, negative_trend_wave = get_sign_aligned_trend_waves(tail_trend)
+    # first item in the array -> latest trend wave
+    latest_positive_trend_list = []
+    latest_negative_trend_list = []
+    if len(positive_trend_wave) > 0:
+        latest_positive_trend_list.append(positive_trend_wave[0])
+
+    if len(negative_trend_wave) > 0:
+        latest_negative_trend_list.append(negative_trend_wave[0])
+
+    for i in range(1, len(positive_trend_wave)):
+        # consecutive trend wave constraint
+        if len(latest_positive_trend_list) >= count:
+            break
+        if positive_trend_wave[i] >= minimum_trend_amplitude:
+            latest_positive_trend_list.append(positive_trend_wave[i])
+
+    for j in range(1, len(negative_trend_wave)):
+        # consecutive trend constraint
+        if len(negative_trend_wave) >= count:
+            break
+        if abs(negative_trend_wave[j]) >= minimum_trend_amplitude:
+            latest_negative_trend_list.append(negative_trend_wave[j])
+
+    return positive_trend_wave, negative_trend_wave
+
+
+def classify_current_trend(time_constraint_positive_trend_list,
+                           time_constraint_negative_trend_list,
+                           occurrence_constraint_positive_trend_list,
+                           occurrence_constraint_negative_trend_list):
+
+
+
+    return
