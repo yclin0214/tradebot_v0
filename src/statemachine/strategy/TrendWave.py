@@ -1,5 +1,3 @@
-
-
 class TrendWave:
     def __init__(self, start_value, start_time, prev, is_positive=True):
         self.max_amplitude = start_value
@@ -12,6 +10,8 @@ class TrendWave:
         self.next_trend_wave = None
 
     def update_trend_wave(self, current_value, current_time):
+        if current_value is None:
+            current_value = 0
         if self.is_positive:
             # case 1: go up - continue the trend wave while updating the max_amplitude
             if current_value >= self.max_amplitude:
