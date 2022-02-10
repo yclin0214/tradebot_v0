@@ -3,6 +3,7 @@
 # increasing uptrend/decreasing uptrend/increasing downtrend/decreasing downtrend
 from src.statemachine.strategy.TrendWave import *
 from src.statemachine.strategy.Trend import Trend, INCREASING_TREND, NEUTRAL_TREND, DECREASING_TREND
+import numpy as np
 
 INCREASING_UPTREND = "INCREASING_UPTREND"
 DECREASING_UPTREND = "DECREASING_UPTREND"
@@ -122,8 +123,8 @@ class TrendAnalyzer:
                                time_constraint_negative_trendwaves,
                                adjacent_amplitude_diff_factor,
                                trend_time_max_diff):
-        if len(time_constraint_positive_trendwaves) <= 1 or len(time_constraint_negative_trendwaves) <= 1:
-            return
+        if len(time_constraint_positive_trendwaves) < 1 or len(time_constraint_negative_trendwaves) < 1:
+            return [], []
 
         up_trend_list = [Trend(time_constraint_positive_trendwaves[0].get_max_amplitude(),
                                time_constraint_positive_trendwaves[0].get_start_time(),
@@ -174,7 +175,7 @@ class TrendAnalyzer:
             current_down_trend = down_trend_list[-1]
             latest_down_trend = down_trend_list[0]
 
-            if TrendAnalyzer.days_diff(latest_down_trend.get_end_time(), current_down_trend.start_time()) >= trend_time_max_diff:
+            if TrendAnalyzer.days_diff(latest_down_trend.get_end_time(), current_down_trend.get_end_time()) >= trend_time_max_diff:
                 break
 
             prev_trend_wave = time_constraint_negative_trendwaves[down_trendwaves_idx]
@@ -252,27 +253,93 @@ class TrendAnalyzer:
         date2 = earlier_date.split(" ")[0]
         return (datetime.strptime(date1, "%Y-%m-%d") - datetime.strptime(date2, "%Y-%m-%d")).days
 
+    # Todo: this is a test/simulation
+    # trendwave_list start with the latest trendwave
+    @staticmethod
+    def get_trend_segments(up_trendwave_list, down_trendwave_list, n=3):
+        up_trendwave_amplitude_list = [tw.get_max_amplitude() for tw in up_trendwave_list]
+        down_trendwave_amplitude_list = [tw.get_max_amplitude() for tw in down_trendwave_list]
+
+        up_trendwave_pivots = TrendAnalyzer.find_pivots(up_trendwave_amplitude_list, n)
+        down_trendwave_pivots = TrendAnalyzer.find_pivots(down_trendwave_amplitude_list, n)
+
+        up_trendwave_segments = []
+        down_trendwave_segments = []
+
+        for i in range(len(up_trendwave_pivots)):
+            if i == 0:
+                up_trendwave_segments.append(up_trendwave_list[:up_trendwave_pivots[i]+1])
+            else:
+                up_trendwave_segments.append(up_trendwave_list[up_trendwave_pivots[i-1]+1: up_trendwave_pivots[i]+1])
+
+        for j in range(len(down_trendwave_pivots)):
+            if j == 0:
+                down_trendwave_segments.append(down_trendwave_list[:down_trendwave_pivots[j]+1])
+            else:
+                down_trendwave_segments.append(down_trendwave_list[down_trendwave_pivots[j-1]+1: down_trendwave_pivots[j]+1])
+
+        if len(up_trendwave_segments) == 0:
+            up_trendwave_segments = [up_trendwave_list]
+        if len(down_trendwave_segments) == 0:
+            down_trendwave_segments = [down_trendwave_list]
+
+        return up_trendwave_segments, down_trendwave_segments
 
     @staticmethod
-    def trend_inference(up_trend_list, down_trend_list):
-        assert len(up_trend_list) > 0 or len(down_trend_list) > 0
-        if len(down_trend_list) == 0:
-            if up_trend_list[0].get_trend() == INCREASING_TREND:
-                return INCREASING_UPTREND
-            elif up_trend_list[0].get_trend() == DECREASING_TREND:
-                return DECREASING_UPTREND
-            else:
-                # For now, no increasing_uptrend is judged as decreasing uptrend
-                # Todo: we can optimize a step further by calling additional datapoints by calling analyze_occurrence_constraint_trend()
-                return DECREASING_UPTREND
-        if len(up_trend_list) == 0:
-            if down_trend_list[0].get_trend() == INCREASING_TREND:
-                return INCREASING_DOWNTREND
-            elif down_trend_list[0].get_trend() == DECREASING_TREND:
-                return DECREASING_DOWNTREND
-            else:
-                # Todo: calling to get additional datapoints by calling analyze_occurrence_constraint_trend()
-                return DECREASING_DOWNTREND
+    def find_pivots(trendwave_amplitude_list, n):
+        if len(trendwave_amplitude_list) < 3:
+            return []
+        last_idx = len(trendwave_amplitude_list) - 1
+        idx = 1
+        result_list = []
+        while len(result_list) < n and idx < last_idx:
+            if TrendAnalyzer.is_a_pivot(trendwave_amplitude_list, idx):
+                result_list.append(idx)
+            idx += 1
+        return result_list
+
+    @staticmethod
+    def is_a_pivot(input_list, pivot_index, diff_factor=0.4, local_max_min=0.8, local_min_max=1.2):
+        if len(input_list[pivot_index:]) < 2:
+            return False
+        if len(input_list[:pivot_index+1]) < 2:
+            return False
+        # local max
+        prev = abs(input_list[pivot_index-1])
+        cur = abs(input_list[pivot_index])
+        nex = abs(input_list[pivot_index+1])
+        if prev < cur and cur > nex:
+            if (cur - prev) >= cur * diff_factor:
+                return cur > local_min_max
+            if (cur - nex) >= cur * diff_factor:
+                return cur > local_min_max
+        # local min
+        elif prev > cur and cur < nex:
+            if (prev - cur) >= prev * diff_factor:
+                return cur < local_max_min
+            if (nex - cur) >= nex * diff_factor:
+                return cur < local_max_min
+        return False
+
+    # this gives us a basic idea of whether the trend is increasing or decreasing
+    @staticmethod
+    def linear_fit_trend_segment(segment):
+        # we need to reverse to have the sequence from the earliest time in the list
+        y = [tw.get_max_amplitude() for tw in segment][::-1]
+        x = [i for i in range(len(segment))]
+
+        if len(segment) == 0:
+            return 0
+        if len(y) < 2:
+            return y[0]
+
+        return np.polyfit(x, y, 1)[0]
+
+    @staticmethod
+    def get_sorted_date_from_segment(segment):
+        if len(segment) == 0:
+            return []
+        return [(tw.get_start_time(), tw.get_end_time()) for tw in segment][::-1]
 
 
 

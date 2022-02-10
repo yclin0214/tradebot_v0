@@ -11,7 +11,12 @@ class BidAskManager(object):
         if bid_ask_candidate_list_size <= 1:
             return False
 
-        cur_idx = bid_ask_list.find(cur_bid_ask_price)
+        cur_idx = -1
+        for i in range(len(bid_ask_list)):
+            if bid_ask_list[i] == cur_bid_ask_price:
+                cur_idx = i
+                break
+        assert cur_idx != -1
         if cur_idx < bid_ask_candidate_list_size - 1:
             # spread = 0.01 -> 2 sec interval; spread = 0.1 -> 20 sec interval; spread = 0.3 -> 60 sec
             time_diff = spread_multiplier * abs(bid_ask_list[cur_idx + 1] - bid_ask_list[cur_idx])
@@ -21,7 +26,7 @@ class BidAskManager(object):
         return False
 
     @staticmethod
-    def get_ask_candidates_anchored_by_bid(bid, ask, base_factor, floor=0):
+    def get_bid(bid, ask, base_factor, floor=0):
         # Todo: refactor to use exceptions instead of asserts
         assert 1 < base_factor <= 2
         assert 0.01 <= bid <= ask
@@ -32,10 +37,10 @@ class BidAskManager(object):
             next_ask = round(bid + spread / pow(base_factor, n), 2)
             res.append(next_ask)
             n = n + 1
-        return BidAskManager.dedupe_sorted_ask_candidates(res, floor)
+        return BidAskManager.dedupe_sorted_ask_candidates(res, floor)[::-1]
 
     @staticmethod
-    def get_ask_candidates_anchored_by_ask(bid, ask, base_factor, floor=0):
+    def get_ask(bid, ask, base_factor, floor=0):
         # Todo: refactor to use exceptions instead of asserts
         assert 1 < base_factor <= 2
         assert 0.01 <= bid <= ask

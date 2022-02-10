@@ -2,7 +2,7 @@ from numpy import *
 import math
 
 
-def plot_dataset(dataset, column_name_pairs, x_range=None, y_range=None, figure_size_x=20, figure_size_y=4, legend_loc="upper left", add_line = []):
+def plot_dataset(dataset, column_name_pairs, x_range=None, y_range=None, figure_size_x=20, figure_size_y=4, legend_loc="upper left", add_line = [], show_axis=True):
     import matplotlib.pyplot as plt
     color_schemes = ["red", "blue", "green", "black", "orange", "grey", "cyan", "magenta", "brown", "olive", "pink"]
 
@@ -23,6 +23,7 @@ def plot_dataset(dataset, column_name_pairs, x_range=None, y_range=None, figure_
         ax.set_xlim(x_range)
     if y_range is not None:
         ax.set_ylim(y_range)
-    plt.axis('off')
+    if not show_axis:
+        plt.axis('off')
     plt.show()
     return

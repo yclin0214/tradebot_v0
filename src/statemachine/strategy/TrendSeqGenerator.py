@@ -240,9 +240,6 @@ class TrendSeqGenerator:
             weighted_signal_rectifying_trend_list.append(weighted_rectifying_trend_sum / window_size)
             weighted_noise_reduced_trend_list.append(weighted_noise_reduced_trend_sum/window_size)
 
-        print(len(trend_avg_list))
-        print(len(weighted_signal_rectifying_trend_list))
-        print(len(df_deduped))
         assert len(trend_avg_list) == len(weighted_signal_rectifying_trend_list) == len(weighted_noise_reduced_trend_list)
         df_deduped["avg_trend"] = trend_avg_list
         df_deduped["noise_reduced_weighted_trend"] = weighted_noise_reduced_trend_list
