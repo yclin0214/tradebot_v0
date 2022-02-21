@@ -289,6 +289,21 @@ class IndicatorDecorator:
         return pd.merge_asof(df1, df2, on='date')
 
     @staticmethod
+    def merge_df_list(df_list, prefix_name_list):
+        if len(df_list) < 2:
+            return
+        pruned_df_list = []
+        for i in range(len(df_list)):
+            df_to_add = df_list[i][["date", "close"]].rename(columns={"close": prefix_name_list[i]+"_close"})
+            pruned_df_list.append(df_to_add)
+
+        merged_df = IndicatorDecorator.merge_two_df_based_on_date(pruned_df_list[0], pruned_df_list[1])
+        for i in range(2, len(pruned_df_list)):
+            next_df = pruned_df_list[i]
+            merged_df = IndicatorDecorator.merge_two_df_based_on_date(next_df, merged_df)
+        return merged_df
+
+    @staticmethod
     def high(resolution):
         name = resolution + "_" + Columns.HIGH
         return name

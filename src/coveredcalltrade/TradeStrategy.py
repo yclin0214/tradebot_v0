@@ -21,10 +21,16 @@ class TradeStrategy(ABC):
         return
 
     @abstractmethod
-    def sell_call_trigger_condition(self, stock_price, stock_volume, option_data, option_contract):
-        return False
+    def should_trigger_call_selling(self):
+        pass
 
     @abstractmethod
-    def buy_call_trigger_condition(self, stock_price, stock_volume, option_data, option_contract):
-        return False
+    def should_trigger_call_buying(self):
+        pass
+
+    @abstractmethod
+    def get_call_candidates(self):
+        pass
+
+
 
