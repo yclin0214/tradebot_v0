@@ -162,16 +162,15 @@ class TradeManager:
         print("validating no pending trade")
         open_trades = self.ib.openTrades()
         self.ib.sleep(1)
-        expiration_date_str = option_contract.lastTradeDateOrContractMonth
-        expiration_date = datetime.strptime(expiration_date_str, "%Y%m%d")
+        current_date = datetime.now()
         symbol_str = option_contract.symbol
         # if symbol, strike price and expire date all match, then we shouldn't trade
 
         for open_trade in open_trades:
             if isinstance(open_trade.contract, Option):
-                current_expiration_date = datetime.strptime(open_trade.contract.lastTradeDateOrContractMonth, "%Y%m%d")
+                contract_expiration_date = datetime.strptime(open_trade.contract.lastTradeDateOrContractMonth, "%Y%m%d")
                 # no contract should be in pending state with the same symbol
-                if self.dte_low_bound <= abs((current_expiration_date - expiration_date).days) <= self.dte_up_bound and \
+                if self.dte_low_bound <= (contract_expiration_date - current_date).days <= self.dte_up_bound and \
                    open_trade.contract.symbol == symbol_str:
                     print("There is pending trade for this particular contract. Exit")
                     return False

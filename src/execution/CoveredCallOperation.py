@@ -83,7 +83,8 @@ class CoveredCallOperation:
             contract_type = position.contract.right
             expiration_date = datetime.strptime(expiration_date_str, "%Y%m%d")
             today_date = datetime.now()
-            if self.short_term_dte_low_bound <= (expiration_date - today_date).days \
+            if self.short_term_dte_low_bound <= \
+                    (expiration_date - today_date).days \
                     <= self.short_term_dte_up_bound and contract_type in ['C', 'CALL']:
                 self.short_term_call_position = position
                 self.short_term_call_contract = position.contract
@@ -118,10 +119,10 @@ class CoveredCallOperation:
         self.place_sell_order(target_option_contract, self.share_count/100)
         return
 
+    # only sell when there's no active trade position, and the trade_manager is not busy
     def place_sell_order(self, call_contract, quantity):
         open_trades = self.ib.openTrades()
         self.ib.sleep(1)
-        counter = 0
         for open_trade in open_trades:
             if open_trade.contract.symbol == self.symbol \
                     and open_trade.orderStatus not in OrderStatus.DoneStates \
@@ -135,7 +136,6 @@ class CoveredCallOperation:
         if self.trade_manager_to_sell_calls.is_trade_manager_busy():
             print("Trade manager is busy. Need to wait until trade manager finishes the work. Exit for now")
             return
-        # Todo: to add callback
         self.trade_manager_to_sell_calls.execute_trade(self.symbol, call_contract, quantity)
         return
 
