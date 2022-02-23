@@ -29,7 +29,7 @@ class AbstractStrategy(ABC):
         pass
 
     @abstractmethod
-    def should_trigger_call_buying(self):
+    def should_trigger_call_closing(self, option_contract):
         pass
 
     @abstractmethod

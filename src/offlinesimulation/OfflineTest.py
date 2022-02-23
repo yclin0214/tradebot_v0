@@ -1,7 +1,7 @@
 from typing import List
 
 from src.coveredcalltrade.trigger.CompositeTrigger import CompositeTrigger
-from src.offlinesimulation.PermutationOptimizer import PermutationOptimizer
+from src.offlinesimulation.ErrorAnalyzer import ErrorAnalyzer
 
 
 def decorate_momentum_column(df):
@@ -79,16 +79,16 @@ def find_first_max_value_during_the_day(df, option_col, m1, m2, trigger_list: Li
     return -1, -1
 
 
-def find_best_trigger_order(df, option_col_name, input_trigger_list, is_call_option=True):
-    permutation_optimizer = PermutationOptimizer(input_trigger_list)
+# input_trigger_lists = List[List[CompositeTrigger]], so we can compare multiple different configurations
+# df: n days' dataframe with 1min resolution -- stock dataset joined by option dataset
+def get_error_analyzer_for_trigger_list(df, option_col_name, input_trigger_lists, is_call_option=True):
+    error_analyzer = ErrorAnalyzer(input_trigger_lists)
 
-    all_trigger_lists = permutation_optimizer.get_all_trigger_lists()
+    all_trigger_lists = error_analyzer.get_all_trigger_lists()
 
-    print("length of trigger lists: " + str(len(all_trigger_lists)))
-
-    for permutation_idx in range(len(all_trigger_lists)):
-        trigger_list = all_trigger_lists[permutation_idx]
-
+    for list_idx in range(len(all_trigger_lists)):
+        trigger_list = all_trigger_lists[list_idx]
+        # 390min = 6.5hr -> trading hour in a normal business day
         for i in range(0, len(df) - 390, 390):
             cur_df = df[i:i + 390]
 
@@ -106,13 +106,13 @@ def find_best_trigger_order(df, option_col_name, input_trigger_list, is_call_opt
 
             if is_call_option:
                 print("trigger price " + str(trigger_price) + " max price of the day: " + str(max_option_price))
-                permutation_optimizer.accumulate_error(permutation_idx, trigger_price, max_option_price)
+                error_analyzer.accumulate_error(list_idx, trigger_price, max_option_price)
             else:
-                permutation_optimizer.accumulate_error(permutation_idx, trigger_price, min_option_price)
-    return permutation_optimizer
+                error_analyzer.accumulate_error(list_idx, trigger_price, min_option_price)
+    return error_analyzer
 
 
 def start_experiment(raw_df, option_col_name, input_trigger_list, is_call_option=True):
     df_with_momentum = decorate_momentum_column(raw_df)
-    permutation_optimizer = find_best_trigger_order(df_with_momentum, option_col_name, input_trigger_list, is_call_option)
-    return permutation_optimizer
+    error_analyzer = get_error_analyzer_for_trigger_list(df_with_momentum, option_col_name, input_trigger_list, is_call_option)
+    return error_analyzer

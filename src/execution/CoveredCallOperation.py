@@ -21,6 +21,7 @@ class CoveredCallOperation:
         self.option_positions = []
         self.short_term_call_contract = None
         self.short_term_call_position = None
+        self.short_term_call_position_quantity = 0
 
         # Managing analytics
         self.short_term_dte_up_bound = short_term_dte_up_bound
@@ -73,11 +74,11 @@ class CoveredCallOperation:
                 self.share_count = position.position
             elif isinstance(current_contract, Option):
                 self.option_positions.append(position)
-        self.short_term_call_position()
+        self.get_short_term_call_position()
 
         return
 
-    def short_term_call_position(self):
+    def get_short_term_call_position(self):
         for position in self.option_positions:
             expiration_date_str = position.contract.lastTradeDateOrContractMonth
             contract_type = position.contract.right
@@ -86,9 +87,11 @@ class CoveredCallOperation:
             if self.short_term_dte_low_bound <= \
                     (expiration_date - today_date).days \
                     <= self.short_term_dte_up_bound and contract_type in ['C', 'CALL']:
-                self.short_term_call_position = position
-                self.short_term_call_contract = position.contract
-                self.short_term_call_contract.exchange = "SMART"
+                if position.position < 0:  # covered call only
+                    self.short_term_call_position = position
+                    self.short_term_call_position_quantity = float(position.position)
+                    self.short_term_call_contract = position.contract
+                    self.short_term_call_contract.exchange = "SMART"
                 return
         return
 
@@ -103,26 +106,34 @@ class CoveredCallOperation:
             self.ib.cancelMktData(self.stock_ticker.contract)
         return
 
-    # Todo: refactor this part of the code - need to add option buying logic
     def share_price_update_callback(self, ticker_event: Ticker):
-        # every ticker event tries to alert the trade_strategy object to refresh the 1min dataset
-        self.trade_strategy.update_price_and_volume()
-        should_trigger_call_selling = self.trade_strategy.should_trigger_call_selling()
-        if should_trigger_call_selling is False:
-            return
+        # buying logic first
         if self.short_term_call_position is not None:
+            existing_option_contract = self.short_term_call_contract
+            should_close = self.trade_strategy.should_trigger_call_closing(existing_option_contract)
+            if should_close:
+                self.place_buy_order(existing_option_contract, abs(self.short_term_call_position_quantity))
             return
 
-        target_option_contract = self.trade_strategy.select_call_option_to_sell()
-        if target_option_contract is None:
-            return
-        self.place_sell_order(target_option_contract, self.share_count/100)
+        # we don't hold any short term covered call positions. We are trying to sell the covered call
+        else:
+            # every ticker event tries to alert the trade_strategy object to refresh the 1min dataset
+            self.trade_strategy.update_price_and_volume()
+            should_trigger_call_selling = self.trade_strategy.should_trigger_call_selling()
+            if should_trigger_call_selling is False:
+                return
+            # the ticker specific strategy instance should determine how to pick the option to sell
+            target_option_contract = self.trade_strategy.select_call_option_to_sell()
+            if target_option_contract is None:
+                return
+            self.place_sell_order(target_option_contract, self.share_count/100)
         return
 
     # only sell when there's no active trade position, and the trade_manager is not busy
     def place_sell_order(self, call_contract, quantity):
         open_trades = self.ib.openTrades()
         self.ib.sleep(1)
+        # make sure we are not double trading by querying all the open trades status
         for open_trade in open_trades:
             if open_trade.contract.symbol == self.symbol \
                     and open_trade.orderStatus not in OrderStatus.DoneStates \
@@ -142,6 +153,7 @@ class CoveredCallOperation:
     def place_buy_order(self, call_contract, quantity):
         open_trades = self.ib.openTrades()
         self.ib.sleep(1)
+        # make sure we are not double trading by querying all the open trades status
         for open_trade in open_trades:
             if open_trade.contract.symbol == self.symbol \
                     and open_trade.orderStatus not in OrderStatus.DoneStates \

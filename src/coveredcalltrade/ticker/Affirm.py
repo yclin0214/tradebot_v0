@@ -65,8 +65,7 @@ class Affirm(AbstractStrategy):
         if len(self.price_list_1min) < 2:
             return False
         current_m1 = (self.price_list_1min[-1] - self.price_list_1min[-2]) * self.volume_list_1min[-1]
-        current_m2 = (self.price_list_1min[-1] - self.price_list_1min[-2]) * self.volume_list_1min[-1] / \
-                     self.volume_list_1min[-2]
+        current_m2 = (self.price_list_1min[-1] - self.price_list_1min[-2]) * self.volume_list_1min[-1] / self.volume_list_1min[-2]
 
         should_trigger = self.composite_trigger.execute(
             self.price_list_1min,
@@ -79,6 +78,17 @@ class Affirm(AbstractStrategy):
         self.max_m1_momentum = max(current_m1, self.max_m1_momentum)
         self.max_m2_momentum = max(current_m2, self.max_m2_momentum)
         return should_trigger
+
+    def should_trigger_call_closing(self, option_contract: Option):
+        option_values_last60sec = self.req_1sec_option_data(option_contract)
+        if option_values_last60sec is None or len(option_values_last60sec) < 1:
+            return False
+        closing_price = option_values_last60sec[-1]
+        expiration_date = datetime.strptime(option_contract.lastTradeDateOrContractMonth, "%Y%m%d")
+        days = (expiration_date - datetime.now()).days
+        if closing_price/days < 0.02:
+            return True
+        return False
 
     def select_call_option_to_sell(self):
         all_call_contracts = self.get_call_candidates()
@@ -95,9 +105,6 @@ class Affirm(AbstractStrategy):
 
         sorted_list_of_pair = sorted(qualified_contract_list, key=lambda x: x[1])
         return sorted_list_of_pair[-1][0]
-
-    def should_trigger_call_buying(self):
-        return
 
     def get_call_candidates(self):
         initial_strike_price = [50, 55, 60, 65]
