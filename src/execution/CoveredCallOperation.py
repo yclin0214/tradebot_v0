@@ -16,7 +16,6 @@ class CoveredCallOperation:
         self.symbol = stock_symbol
         self.ib = ib_client
         # Position tracker for the symbol
-        self.account_position = []
         self.share_count = 0
         self.option_positions = []
         self.short_term_call_contract = None
@@ -42,7 +41,6 @@ class CoveredCallOperation:
 
         # Managing subscription; un/subscribe to the ticker data streams
         self.stock_ticker = None
-        self.short_term_call_data_sub_list = []
         self.subscribe_to_stock_data_streams()
 
         # Managing IB_Insync client
@@ -64,7 +62,18 @@ class CoveredCallOperation:
         self.refresh_ticker_positions()
         return
 
+    def reset_position(self):
+        self.share_count = 0
+        self.option_positions = []
+        self.short_term_call_contract = None
+        self.short_term_call_position = None
+        self.short_term_call_position_quantity = 0
+        return
+
     def refresh_ticker_positions(self):
+        # Reset the internal position params first
+        self.reset_position()
+
         positions = self.ib.positions()
         for position in positions:
             current_contract = position.contract
@@ -74,11 +83,11 @@ class CoveredCallOperation:
                 self.share_count = position.position
             elif isinstance(current_contract, Option):
                 self.option_positions.append(position)
-        self.get_short_term_call_position()
+        self.get_short_term_covered_call_position()
 
         return
 
-    def get_short_term_call_position(self):
+    def get_short_term_covered_call_position(self):
         for position in self.option_positions:
             expiration_date_str = position.contract.lastTradeDateOrContractMonth
             contract_type = position.contract.right
@@ -176,7 +185,4 @@ class CoveredCallOperation:
         print("option position below ** ")
         print(self.short_term_call_position)
         print("short term call options subscription list below: **")
-        for st_call_contract in self.short_term_call_data_sub_list:
-            print("contract subscribed to data streams: ")
-            print(st_call_contract)
 
