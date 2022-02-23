@@ -4,11 +4,9 @@ import threading
 
 from datetime import datetime, date, timedelta
 from ib_insync import *
-# the caller might try to invoke the TradeManager many times when a trade is pending. So we need to use a lock
-# to expose the status. Also this should be run as a separate thread as it will sleep during the bid/ask intervals
-# The first priority is to prevent double trade
 
 
+# Contain a simple real time bid/ask strategy by introducing some randomness of adjustment
 class TradeManager:
     def __init__(self, ib_client: IB, days_to_expiration_up_bound, days_to_expiration_low_bound, to_sell=True, to_buy=True):
         # static property. Once the instance is created, these will not be reset
@@ -50,6 +48,7 @@ class TradeManager:
         return
 
     def reset(self):
+        self.symbol = ""
         self.is_busy = False
         self.option_ticker = None
         self.trade = None
@@ -61,6 +60,7 @@ class TradeManager:
 
         self.reset()
         self.symbol = symbol
+        # Note: this might not be needed as the process is single threaded
         is_lock_acquired = self.is_busy_lock.acquire(blocking=False)
 
         if is_lock_acquired is False:
@@ -70,7 +70,6 @@ class TradeManager:
         self.is_busy = True
         self.quantity = quantity
 
-        # Single threaded operation here. So we don't really need to lock
         can_trade = self.validate_no_pending_trade_for_contract(option_contract)
         if can_trade is False:
             self.reset()
