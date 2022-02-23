@@ -51,10 +51,11 @@ class CoveredCallOperation:
         self.ib.positionEvent += self.on_position_event
 
     def on_ib_disconnect(self):
-        self.unsubscribe_to_stock_data_streams()
+        print("IB is disconnected")
         return
 
     def on_ib_connect(self):
+        self.unsubscribe_to_stock_data_streams()
         self.subscribe_to_stock_data_streams()
         return
 

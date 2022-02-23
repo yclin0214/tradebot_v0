@@ -35,22 +35,19 @@ class TradeManager:
 
     # if IB is disconnected and reconnected again, need to cancel any trade that's active currently
     def on_ib_connect(self):
-        print("IB reconnected: Trade Manager is trying to cancel all active orders")
         if self.is_busy or self.trade is not None:
             self.ib.cancelOrder(self.trade.order)
 
     def on_ib_disconnect(self):
-        print("IB disconnected: Trade Manager is disabling all the TradeControllers")
-        if self.option_ticker is not None:
-            # We don't need to reset here, because once the cancel req is successful, it will be reset in the
-            # callback function
-            self.ib.cancelMktData(self.option_ticker.contract)
+        print("IB is disconnected")
         return
 
     def reset(self):
         self.symbol = ""
         self.is_busy = False
         self.option_ticker = None
+        if self.trade is not None:
+            self.ib.cancelMktData(self.trade.contract)
         self.trade = None
         self.quantity = 0
         self.last_bid_ask_timestamp = None
