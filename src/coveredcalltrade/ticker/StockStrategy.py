@@ -8,9 +8,10 @@ from src.coveredcalltrade.trigger.MomentumWeightedTrigger import *
 
 
 # This class just provides the strategy. It doesn't know the state of the transaction status
-class Affirm(AbstractStrategy):
-    def __init__(self, ib_client: IB, name="AFRM", trade_interval=30):
-        super().__init__(name)
+# Replace the ticker_symbol with any other valid string
+class StockStrategy(AbstractStrategy):
+    def __init__(self, ib_client: IB, ticker_symbol="AFRM", refresh_interval_in_seconds=30):
+        super().__init__(ticker_symbol)
         self.ib_client = ib_client
         self.price_list_1min = []
         self.volume_list_1min = []
@@ -19,11 +20,10 @@ class Affirm(AbstractStrategy):
         self.max_m1_momentum = 0
         self.max_m2_momentum = 0
 
-        # Todo: to add the trigger list creation function
-        self.trigger_list = Affirm.generate_composite_trigger_list_for_call_selling()
+        self.trigger_list = StockStrategy.generate_composite_trigger_list_for_call_selling()
         self.composite_trigger = CompositeTrigger(self.trigger_list)
 
-        self.trade_interval = trade_interval
+        self.refresh_interval_in_seconds = refresh_interval_in_seconds
 
     def update_price_and_volume(self):
         current_time = datetime.now()
@@ -31,7 +31,7 @@ class Affirm(AbstractStrategy):
             self.req_1min_stock_data()
             if len(self.price_list_1min) > 0:
                 self.last_updated_timestamp = current_time
-        elif (current_time - self.last_updated_timestamp).seconds >= self.trade_interval:  # refresh the datasets every 30 secs
+        elif (current_time - self.last_updated_timestamp).seconds >= self.refresh_interval_in_seconds:  # refresh the datasets every 30 secs
             self.req_1min_stock_data()
 
         return
@@ -106,9 +106,11 @@ class Affirm(AbstractStrategy):
         sorted_list_of_pair = sorted(qualified_contract_list, key=lambda x: x[1])
         return sorted_list_of_pair[-1][0]
 
+    # Hardcoded values in this function!
     def get_call_candidates(self):
+        # Important! These are hardcoded values -- strike price of a specific stock
         initial_strike_price = [50, 55, 60, 65]
-        expiration_date_candidates = Affirm.get_next_n_fridays(4)
+        expiration_date_candidates = StockStrategy.get_next_n_fridays(4)
         assert len(expiration_date_candidates) == 4
         dte_candidate_list = expiration_date_candidates[-2:]
         adjusted_strike_price = [max(init_price, self.price_list_1min[-1] * 1.15) for init_price in
@@ -127,6 +129,7 @@ class Affirm(AbstractStrategy):
                 )
         return contract_to_monitor
 
+    # Hardcoded value in the following function. Theta = 0.2 is the threshold here
     def minimum_selling_condition(self, input_option: Option, latest_price):
         MINIMUM_THETA = 0.2
         expiration_date = datetime.strptime(input_option.lastTradeDateOrContractMonth, "%Y%m%d")
@@ -135,7 +138,7 @@ class Affirm(AbstractStrategy):
             return latest_price / dte
         return -1
 
-    # hardcoded strategy; tuned through offline experiment
+    # hardcoded strategy! tuned through offline experiment
     @staticmethod
     def generate_composite_trigger_list_for_call_selling():
         composite_trigger_list = []
