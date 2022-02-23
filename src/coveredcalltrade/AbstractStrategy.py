@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class TradeStrategy(ABC):
+class AbstractStrategy(ABC):
     def __init__(self, name):
         self.symbol = name
         self.stock_1day_df = None
@@ -21,6 +21,10 @@ class TradeStrategy(ABC):
         return
 
     @abstractmethod
+    def update_price_and_volume(self):
+        pass
+
+    @abstractmethod
     def should_trigger_call_selling(self):
         pass
 
@@ -29,7 +33,7 @@ class TradeStrategy(ABC):
         pass
 
     @abstractmethod
-    def get_call_candidates(self):
+    def select_call_option_to_sell(self):
         pass
 
 

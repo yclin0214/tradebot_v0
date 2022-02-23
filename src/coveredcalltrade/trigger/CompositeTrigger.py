@@ -1,5 +1,5 @@
-from src.coveredcalltrade.PriceBasedTrigger import PriceBasedTrigger
-from src.coveredcalltrade.MomentumWeightedTrigger import MomentumWeightedTrigger, M1, M2
+from src.coveredcalltrade.trigger.PriceBasedTrigger import PriceBasedTrigger
+from src.coveredcalltrade.trigger.MomentumWeightedTrigger import MomentumWeightedTrigger, M1, M2
 
 
 class CompositeTrigger:

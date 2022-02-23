@@ -1,8 +1,7 @@
-import pandas as pd
 from typing import List
 
-from src.coveredcalltrade.CompositeTrigger import CompositeTrigger
-from src.coveredcalltrade.PermutationOptimizer import PermutationOptimizer
+from src.coveredcalltrade.trigger.CompositeTrigger import CompositeTrigger
+from src.offlinesimulation.PermutationOptimizer import PermutationOptimizer
 
 
 def decorate_momentum_column(df):

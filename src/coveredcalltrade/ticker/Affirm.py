@@ -1,19 +1,17 @@
 from datetime import datetime, date, timedelta
 from ib_insync import *
-import pandas as pd
-from src.coveredcalltrade.TradeStrategy import TradeStrategy
-from src.coveredcalltrade.CompositeTrigger import CompositeTrigger
+from src.coveredcalltrade.AbstractStrategy import AbstractStrategy
+from src.coveredcalltrade.trigger.CompositeTrigger import CompositeTrigger
 
-from src.coveredcalltrade.PriceBasedTrigger import *
-from src.coveredcalltrade.MomentumWeightedTrigger import *
+from src.coveredcalltrade.trigger.PriceBasedTrigger import *
+from src.coveredcalltrade.trigger.MomentumWeightedTrigger import *
 
 
 # This class just provides the strategy. It doesn't know the state of the transaction status
-class Affirm(TradeStrategy):
-    def __init__(self, ib_client: IB, name="AFRM"):
+class Affirm(AbstractStrategy):
+    def __init__(self, ib_client: IB, name="AFRM", trade_interval=30):
         super().__init__(name)
         self.ib_client = ib_client
-        self.option_key_to_price_list_map = {}
         self.price_list_1min = []
         self.volume_list_1min = []
 
@@ -25,13 +23,15 @@ class Affirm(TradeStrategy):
         self.trigger_list = Affirm.generate_composite_trigger_list_for_call_selling()
         self.composite_trigger = CompositeTrigger(self.trigger_list)
 
+        self.trade_interval = trade_interval
+
     def update_price_and_volume(self):
         current_time = datetime.now()
         if self.last_updated_timestamp is None:
             self.req_1min_stock_data()
             if len(self.price_list_1min) > 0:
                 self.last_updated_timestamp = current_time
-        elif (current_time - self.last_updated_timestamp).seconds >= 30: # refresh the datasets every 30 secs
+        elif (current_time - self.last_updated_timestamp).seconds >= self.trade_interval:  # refresh the datasets every 30 secs
             self.req_1min_stock_data()
 
         return
@@ -65,11 +65,12 @@ class Affirm(TradeStrategy):
         if len(self.price_list_1min) < 2:
             return False
         current_m1 = (self.price_list_1min[-1] - self.price_list_1min[-2]) * self.volume_list_1min[-1]
-        current_m2 = (self.price_list_1min[-1] - self.price_list_1min[-2]) * self.volume_list_1min[-1]/self.volume_list_1min[-2]
+        current_m2 = (self.price_list_1min[-1] - self.price_list_1min[-2]) * self.volume_list_1min[-1] / \
+                     self.volume_list_1min[-2]
 
         should_trigger = self.composite_trigger.execute(
             self.price_list_1min,
-            len(self.price_list_1min)-1,
+            len(self.price_list_1min) - 1,
             current_m1,
             self.max_m1_momentum,
             current_m2,
@@ -103,7 +104,8 @@ class Affirm(TradeStrategy):
         expiration_date_candidates = Affirm.get_next_n_fridays(4)
         assert len(expiration_date_candidates) == 4
         dte_candidate_list = expiration_date_candidates[-2:]
-        adjusted_strike_price = [max(init_price, self.price_list_1min[-1] * 1.15) for init_price in initial_strike_price]
+        adjusted_strike_price = [max(init_price, self.price_list_1min[-1] * 1.15) for init_price in
+                                 initial_strike_price]
 
         contract_to_monitor = []
         for strike_price in adjusted_strike_price:
@@ -122,8 +124,8 @@ class Affirm(TradeStrategy):
         MINIMUM_THETA = 0.2
         expiration_date = datetime.strptime(input_option.lastTradeDateOrContractMonth, "%Y%m%d")
         dte = (datetime.now() - expiration_date).days
-        if latest_price/dte >= MINIMUM_THETA:  # at least 0.2 theta ($1 decay per week)
-            return latest_price/dte
+        if latest_price / dte >= MINIMUM_THETA:  # at least 0.2 theta ($1 decay per week)
+            return latest_price / dte
         return -1
 
     # hardcoded strategy; tuned through offline experiment
